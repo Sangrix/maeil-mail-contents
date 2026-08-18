@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>매일메일 스터디</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #161922;
+    --panel-2: #1d212c;
+    --border: #2a2f3d;
+    --text: #e6e8ef;
+    --text-dim: #9aa0b4;
+    --accent: #6d8dff;
+    --accent-dim: #3a4a8f;
+    --done: #3ecf8e;
+    --code-bg: #10131a;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Pretendard", "Apple SD Gothic Neo", "Segoe UI", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    flex-direction: column;
+  }
+  header {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    background: var(--panel);
+  }
+  header h1 {
+    font-size: 16px;
+    margin: 0;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .subject-toggle {
+    display: flex;
+    background: var(--panel-2);
+    border-radius: 8px;
+    padding: 3px;
+    gap: 3px;
+  }
+  .subject-toggle button {
+    border: none;
+    background: transparent;
+    color: var(--text-dim);
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .subject-toggle button.active {
+    background: var(--accent);
+    color: #fff;
+  }
+  #search {
+    flex: 1;
+    min-width: 160px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+  }
+  #search:focus { outline: 1px solid var(--accent); }
+  .btn {
+    border: 1px solid var(--border);
+    background: var(--panel-2);
+    color: var(--text);
+    padding: 8px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  #progress-summary {
+    font-size: 12px;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+  main {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+  }
+  #sidebar {
+    width: 320px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    background: var(--panel);
+    padding: 8px 0 40px;
+  }
+  .category {
+    margin-bottom: 4px;
+  }
+  .category-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .category-head:hover { background: var(--panel-2); }
+  .category-title {
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .category-count {
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+  .category-desc {
+    font-size: 11.5px;
+    color: var(--text-dim);
+    padding: 0 16px 6px;
+    line-height: 1.4;
+  }
+  .category-items { display: none; }
+  .category.open .category-items { display: block; }
+  .category.open .chevron { transform: rotate(90deg); }
+  .chevron { transition: transform .15s; color: var(--text-dim); font-size: 11px; }
+  .item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 8px 16px 8px 28px;
+    font-size: 12.5px;
+    cursor: pointer;
+    color: var(--text-dim);
+    line-height: 1.4;
+    border-left: 2px solid transparent;
+  }
+  .item:hover { background: var(--panel-2); color: var(--text); }
+  .item.active { background: var(--panel-2); color: var(--text); border-left-color: var(--accent); }
+  .item.done .item-title { color: var(--text-dim); text-decoration: line-through; text-decoration-color: var(--done); }
+  .item input[type=checkbox] { margin-top: 2px; accent-color: var(--done); cursor: pointer; }
+  #content-pane {
+    flex: 1;
+    overflow-y: auto;
+    padding: 32px 40px 80px;
+  }
+  #content-inner { max-width: 780px; margin: 0 auto; }
+  .empty-state {
+    color: var(--text-dim);
+    font-size: 14px;
+    max-width: 780px;
+    margin: 60px auto;
+    text-align: center;
+  }
+  .qa-title {
+    font-size: 22px;
+    font-weight: 800;
+    margin: 0 0 4px;
+    line-height: 1.4;
+  }
+  .qa-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 24px;
+    color: var(--text-dim);
+    font-size: 12.5px;
+  }
+  .qa-meta .btn { padding: 5px 10px; font-size: 12px; }
+  .md h2 {
+    font-size: 16px;
+    margin-top: 32px;
+    margin-bottom: 12px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    color: var(--accent);
+  }
+  .md h3 { font-size: 14.5px; margin-top: 20px; }
+  .md p { line-height: 1.85; margin: 0 0 14px; font-size: 14.5px; }
+  .md ul, .md ol { line-height: 1.85; font-size: 14.5px; margin: 0 0 14px; padding-left: 22px; }
+  .md li { margin-bottom: 4px; }
+  .md blockquote {
+    margin: 0 0 14px;
+    padding: 8px 14px;
+    border-left: 3px solid var(--accent-dim);
+    background: var(--panel-2);
+    color: var(--text-dim);
+    border-radius: 0 6px 6px 0;
+  }
+  .md code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 0.9em;
+    font-family: "SFMono-Regular", Consolas, Menlo, monospace;
+  }
+  .md pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    margin: 0 0 16px;
+  }
+  .md pre code { background: none; border: none; padding: 0; font-size: 13px; line-height: 1.6; }
+  .md a { color: var(--accent); text-decoration: none; }
+  .md a:hover { text-decoration: underline; }
+  .md strong { color: #fff; }
+  #toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-size: 13px;
+    opacity: 0;
+    transition: opacity .2s, transform .2s;
+    pointer-events: none;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  ::-webkit-scrollbar { width: 10px; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 6px; }
+  @media (max-width: 720px) {
+    main { flex-direction: column; }
+    #sidebar { width: 100%; max-height: 40vh; }
+    #content-pane { padding: 20px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>📚 매일메일 스터디</h1>
+  <div class="subject-toggle" id="subject-toggle">
+    <button data-subject="frontend" class="active">Frontend</button>
+    <button data-subject="backend">Backend</button>
+  </div>
+  <input type="text" id="search" placeholder="질문 검색... (예: 클로저, useEffect)" />
+  <button class="btn" id="random-btn">🎲 랜덤 복습</button>
+  <span id="progress-summary"></span>
+</header>
+<main>
+  <nav id="sidebar"></nav>
+  <section id="content-pane">
+    <div id="content-inner">
+      <div class="empty-state">왼쪽 목록에서 질문을 선택하거나, "랜덤 복습" 버튼을 눌러보세요.</div>
+    </div>
+  </section>
+</main>
+<div id="toast"></div>
+
+<script>
+const DATA = /*__DATA__*/;
+
+/* ---------- 아주 작은 마크다운 렌더러 (오프라인 전용, 이 콘텐츠의 문법만 지원) ---------- */
+function escapeHtml(s) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+function renderInline(text) {
+  text = escapeHtml(text);
+  text = text.replace(/`([^`]+)`/g, "<code>$1</code>");
+  text = text.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+  text = text.replace(/\[(.+?)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+  text = text.replace(/<br\s*\/?>/g, "<br>");
+  return text;
+}
+function renderMarkdown(md) {
+  const lines = md.replace(/\r\n/g, "\n").split("\n");
+  let html = "";
+  let i = 0;
+  let listBuffer = null; // {type: 'ul'|'ol', items: []}
+  function flushList() {
+    if (!listBuffer) return;
+    const tag = listBuffer.type;
+    html += `<${tag}>` + listBuffer.items.map(it => `<li>${renderInline(it)}</li>`).join("") + `</${tag}>`;
+    listBuffer = null;
+  }
+  let paraBuffer = [];
+  function flushPara() {
+    if (paraBuffer.length) {
+      html += `<p>${paraBuffer.map(renderInline).join("<br>")}</p>`;
+      paraBuffer = [];
+    }
+  }
+  while (i < lines.length) {
+    const line = lines[i];
+
+    if (/^```/.test(line)) {
+      flushPara(); flushList();
+      const lang = line.replace(/^```/, "").trim();
+      const code = [];
+      i++;
+      while (i < lines.length && !/^```/.test(lines[i])) { code.push(lines[i]); i++; }
+      html += `<pre><code class="lang-${escapeHtml(lang)}">${escapeHtml(code.join("\n"))}</code></pre>`;
+      i++;
+      continue;
+    }
+    const h = line.match(/^(#{1,6})\s+(.*)$/);
+    if (h) {
+      flushPara(); flushList();
+      const level = Math.min(h[1].length, 3);
+      html += `<h${level}>${renderInline(h[2])}</h${level}>`;
+      i++; continue;
+    }
+    const bq = line.match(/^>\s?(.*)$/);
+    if (bq) {
+      flushPara(); flushList();
+      const quote = [];
+      while (i < lines.length && /^>\s?/.test(lines[i])) { quote.push(lines[i].replace(/^>\s?/, "")); i++; }
+      html += `<blockquote>${quote.map(renderInline).join("<br>")}</blockquote>`;
+      continue;
+    }
+    const ul = line.match(/^[-*]\s+(.*)$/);
+    if (ul) {
+      flushPara();
+      if (!listBuffer || listBuffer.type !== "ul") { flushList(); listBuffer = { type: "ul", items: [] }; }
+      listBuffer.items.push(ul[1]);
+      i++; continue;
+    }
+    const ol = line.match(/^\d+\.\s+(.*)$/);
+    if (ol) {
+      flushPara();
+      if (!listBuffer || listBuffer.type !== "ol") { flushList(); listBuffer = { type: "ol", items: [] }; }
+      listBuffer.items.push(ol[1]);
+      i++; continue;
+    }
+    if (line.trim() === "") {
+      flushPara(); flushList();
+      i++; continue;
+    }
+    paraBuffer.push(line);
+    i++;
+  }
+  flushPara(); flushList();
+  return html;
+}
+
+/* ---------- 진행 상태 저장 (localStorage) ---------- */
+const STORAGE_KEY = "maeil-mail-study-progress-v1";
+function loadProgress() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; }
+  catch { return {}; }
+}
+function saveProgress(p) { localStorage.setItem(STORAGE_KEY, JSON.stringify(p)); }
+let progress = loadProgress();
+function isDone(id) { return !!progress[id]; }
+function toggleDone(id) {
+  if (progress[id]) delete progress[id]; else progress[id] = true;
+  saveProgress(progress);
+}
+
+/* ---------- 상태 ---------- */
+let currentSubject = "frontend";
+let currentId = null;
+let openCategories = new Set();
+
+const sidebarEl = document.getElementById("sidebar");
+const contentInner = document.getElementById("content-inner");
+const searchEl = document.getElementById("search");
+const progressSummaryEl = document.getElementById("progress-summary");
+const toastEl = document.getElementById("toast");
+
+function showToast(msg) {
+  toastEl.textContent = msg;
+  toastEl.classList.add("show");
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => toastEl.classList.remove("show"), 1600);
+}
+
+function allItemIds(subject) {
+  return Object.keys(DATA[subject].items);
+}
+
+function updateProgressSummary() {
+  const ids = allItemIds(currentSubject);
+  const done = ids.filter(isDone).length;
+  progressSummaryEl.textContent = `${done} / ${ids.length} 완료`;
+}
+
+function matchesSearch(item, query) {
+  if (!query) return true;
+  const q = query.toLowerCase();
+  return item.title.toLowerCase().includes(q) || item.content.toLowerCase().includes(q);
+}
+
+function renderSidebar() {
+  const query = searchEl.value.trim();
+  const section = DATA[currentSubject];
+  sidebarEl.innerHTML = "";
+
+  section.categories.forEach((cat, catIdx) => {
+    const catItems = cat.items
+      .map(id => section.items[id])
+      .filter(item => item && matchesSearch(item, query));
+    if (query && catItems.length === 0) return;
+
+    const catKey = currentSubject + "-" + catIdx;
+    const isOpen = query ? true : openCategories.has(catKey);
+
+    const catEl = document.createElement("div");
+    catEl.className = "category" + (isOpen ? " open" : "");
+
+    const doneCount = cat.items.filter(id => section.items[id] && isDone(id)).length;
+
+    const head = document.createElement("div");
+    head.className = "category-head";
+    head.innerHTML = `
+      <span class="category-title">${escapeHtml(cat.name)}</span>
+      <span class="category-count"><span class="chevron">▶</span> ${doneCount}/${cat.items.length}</span>
+    `;
+    head.addEventListener("click", () => {
+      if (openCategories.has(catKey)) openCategories.delete(catKey);
+      else openCategories.add(catKey);
+      renderSidebar();
+    });
+    catEl.appendChild(head);
+
+    if (cat.desc) {
+      const desc = document.createElement("div");
+      desc.className = "category-desc";
+      desc.textContent = cat.desc;
+      catEl.appendChild(desc);
+    }
+
+    const itemsWrap = document.createElement("div");
+    itemsWrap.className = "category-items";
+    catItems.forEach(item => {
+      const done = isDone(item.id);
+      const itemEl = document.createElement("div");
+      itemEl.className = "item" + (done ? " done" : "") + (item.id === currentId ? " active" : "");
+      itemEl.innerHTML = `
+        <input type="checkbox" ${done ? "checked" : ""} data-id="${item.id}" />
+        <span class="item-title">${escapeHtml(item.title || item.id)}</span>
+      `;
+      itemEl.querySelector("input").addEventListener("click", (e) => {
+        e.stopPropagation();
+        toggleDone(item.id);
+        renderSidebar();
+        updateProgressSummary();
+      });
+      itemEl.addEventListener("click", () => selectItem(item.id));
+      itemsWrap.appendChild(itemEl);
+    });
+    catEl.appendChild(itemsWrap);
+    sidebarEl.appendChild(catEl);
+  });
+}
+
+function selectItem(id) {
+  currentId = id;
+  const item = DATA[currentSubject].items[id];
+  if (!item) return;
+  const done = isDone(id);
+  contentInner.innerHTML = `
+    <h2 class="qa-title">${escapeHtml(item.title || item.id)}</h2>
+    <div class="qa-meta">
+      <span>${item.id}</span>
+      <button class="btn" id="toggle-done-btn">${done ? "✅ 학습 완료" : "☐ 학습 완료로 표시"}</button>
+    </div>
+    <div class="md">${renderMarkdown(item.content)}</div>
+  `;
+  document.getElementById("toggle-done-btn").addEventListener("click", () => {
+    toggleDone(id);
+    selectItem(id);
+    renderSidebar();
+    updateProgressSummary();
+  });
+  contentInner.parentElement.scrollTop = 0;
+  renderSidebar();
+}
+
+function pickRandom() {
+  const ids = allItemIds(currentSubject);
+  if (ids.length === 0) return;
+  const notDone = ids.filter(id => !isDone(id));
+  const pool = notDone.length > 0 ? notDone : ids;
+  const pick = pool[Math.floor(Math.random() * pool.length)];
+  selectItem(pick);
+  if (notDone.length === 0) showToast("모든 문항을 학습했어요! 전체에서 무작위로 골랐습니다 🎉");
+}
+
+document.getElementById("subject-toggle").addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-subject]");
+  if (!btn) return;
+  currentSubject = btn.dataset.subject;
+  document.querySelectorAll("#subject-toggle button").forEach(b => b.classList.toggle("active", b === btn));
+  currentId = null;
+  contentInner.innerHTML = '<div class="empty-state">왼쪽 목록에서 질문을 선택하거나, "랜덤 복습" 버튼을 눌러보세요.</div>';
+  renderSidebar();
+  updateProgressSummary();
+});
+
+searchEl.addEventListener("input", () => renderSidebar());
+document.getElementById("random-btn").addEventListener("click", pickRandom);
+
+renderSidebar();
+updateProgressSummary();
+</script>
+</body>
+</html>
