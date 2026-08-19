@@ -12,7 +12,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SITE = ROOT / "site"
 sys.path.insert(0, str(SITE))
-from curriculum import FRONTEND_ORDER, BACKEND_ORDER  # noqa: E402
+from curriculum import FRONTEND_ORDER, BACKEND_ORDER, BACKEND_CATEGORY_ORDER  # noqa: E402
 
 ITEM_RE = re.compile(r"^-\s*\[(.*?)\]\(contents/([\w-]+)\.md\)\s*$")
 CATEGORY_RE = re.compile(r"^##\s+(.*?)\s*$")
@@ -50,7 +50,16 @@ def apply_learning_order(categories, order_map):
         cat["items"].sort(key=lambda item_id: rank.get(item_id, len(order)))
 
 
-def build_section(subject_dir: Path, prefix: str, order_map):
+def apply_category_order(categories, category_order):
+    """카테고리 배열 자체를 curriculum.py에 정의된 추천 순서로 재정렬한다."""
+    if not category_order:
+        return categories
+    rank = {name: i for i, name in enumerate(category_order)}
+    categories.sort(key=lambda cat: rank.get(cat["name"], len(category_order)))
+    return categories
+
+
+def build_section(subject_dir: Path, prefix: str, order_map, category_order=None):
     categories = parse_toc_category(subject_dir / "toc-category.md")
     items = {}
     for md_file in sorted((subject_dir / "contents").glob(f"{prefix}-*.md")):
@@ -75,6 +84,7 @@ def build_section(subject_dir: Path, prefix: str, order_map):
             leftovers, key=lambda x: int(x.split("-")[1]))})
 
     apply_learning_order(categories, order_map)
+    apply_category_order(categories, category_order)
 
     return {"categories": categories, "items": items}
 
@@ -82,7 +92,7 @@ def build_section(subject_dir: Path, prefix: str, order_map):
 def main():
     data = {
         "frontend": build_section(ROOT / "frontend", "fe", FRONTEND_ORDER),
-        "backend": build_section(ROOT / "backend", "be", BACKEND_ORDER),
+        "backend": build_section(ROOT / "backend", "be", BACKEND_ORDER, BACKEND_CATEGORY_ORDER),
     }
 
     template = (SITE / "template.html").read_text(encoding="utf-8")
