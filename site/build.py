@@ -6,10 +6,13 @@
 """
 import json
 import re
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 SITE = ROOT / "site"
+sys.path.insert(0, str(SITE))
+from curriculum import FRONTEND_ORDER, BACKEND_ORDER  # noqa: E402
 
 ITEM_RE = re.compile(r"^-\s*\[(.*?)\]\(contents/([\w-]+)\.md\)\s*$")
 CATEGORY_RE = re.compile(r"^##\s+(.*?)\s*$")
@@ -36,7 +39,18 @@ def parse_toc_category(path: Path):
     return categories
 
 
-def build_section(subject_dir: Path, prefix: str):
+def apply_learning_order(categories, order_map):
+    """curriculum.py에 정의된 추천 학습 순서로 각 카테고리의 items를 재정렬한다."""
+    for cat in categories:
+        order = order_map.get(cat["name"])
+        if not order:
+            continue
+        rank = {item_id: i for i, item_id in enumerate(order)}
+        # 순서 목록에 없는 id(콘텐츠가 새로 추가된 경우 등)는 뒤에 원래 순서대로 붙인다.
+        cat["items"].sort(key=lambda item_id: rank.get(item_id, len(order)))
+
+
+def build_section(subject_dir: Path, prefix: str, order_map):
     categories = parse_toc_category(subject_dir / "toc-category.md")
     items = {}
     for md_file in sorted((subject_dir / "contents").glob(f"{prefix}-*.md")):
@@ -60,13 +74,15 @@ def build_section(subject_dir: Path, prefix: str):
         categories.append({"name": "기타", "desc": "카테고리 미분류 질문입니다.", "items": sorted(
             leftovers, key=lambda x: int(x.split("-")[1]))})
 
+    apply_learning_order(categories, order_map)
+
     return {"categories": categories, "items": items}
 
 
 def main():
     data = {
-        "frontend": build_section(ROOT / "frontend", "fe"),
-        "backend": build_section(ROOT / "backend", "be"),
+        "frontend": build_section(ROOT / "frontend", "fe", FRONTEND_ORDER),
+        "backend": build_section(ROOT / "backend", "be", BACKEND_ORDER),
     }
 
     template = (SITE / "template.html").read_text(encoding="utf-8")

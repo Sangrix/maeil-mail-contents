@@ -303,6 +303,43 @@
   }
   .qa-meta .btn { padding: 6px 12px; font-size: 12px; }
   .qa-meta .btn.is-done { border-color: var(--done); color: var(--done); background: var(--done-soft); }
+  .course-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 28px;
+    padding-top: 20px;
+    border-top: 1px solid var(--glass-border-soft);
+  }
+  .course-nav-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
+    max-width: 44%;
+    padding: 10px 14px;
+    text-align: left;
+  }
+  .course-nav-btn.next { align-items: flex-end; text-align: right; margin-left: auto; }
+  .course-nav-btn .cn-label { font-size: 10.5px; color: var(--text-faint); font-weight: 700; }
+  .course-nav-btn .cn-title {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text-dim);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
+  .course-nav-btn:hover .cn-title { color: var(--accent-strong); }
+  .course-position {
+    flex-shrink: 0;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-faint);
+    font-variant-numeric: tabular-nums;
+  }
   .md h2 {
     font-size: 17px;
     font-weight: 700;
@@ -404,6 +441,7 @@
     <button data-subject="backend">Backend</button>
   </div>
   <input type="text" id="search" placeholder="질문 검색... (예: 클로저, useEffect)" />
+  <button class="btn" id="course-btn">📘 학습 코스</button>
   <button class="btn" id="random-btn">🎲 랜덤 복습</button>
   <span id="progress-summary"></span>
 </header>
@@ -539,6 +577,11 @@ function allItemIds(subject) {
   return Object.keys(DATA[subject].items);
 }
 
+/* 추천 학습 순서(카테고리 순서 + 카테고리 내 큐레이션 순서)를 그대로 이어붙인 코스 순서 */
+function courseOrder(subject) {
+  return DATA[subject].categories.flatMap(cat => cat.items);
+}
+
 function updateProgressSummary() {
   const ids = allItemIds(currentSubject);
   const done = ids.filter(isDone).length;
@@ -633,6 +676,16 @@ function selectItem(id) {
   if (!item) return;
   const done = isDone(id);
   const category = findCategory(currentSubject, id);
+  if (category) {
+    const catIdx = DATA[currentSubject].categories.indexOf(category);
+    openCategories.add(currentSubject + "-" + catIdx);
+  }
+
+  const order = courseOrder(currentSubject);
+  const idx = order.indexOf(id);
+  const prevItem = idx > 0 ? DATA[currentSubject].items[order[idx - 1]] : null;
+  const nextItem = idx >= 0 && idx < order.length - 1 ? DATA[currentSubject].items[order[idx + 1]] : null;
+
   contentInner.innerHTML = `
     ${category ? `<div class="qa-breadcrumb">${escapeHtml(category.name)}</div>` : ""}
     <h2 class="qa-title">${escapeHtml(item.title || item.id)}</h2>
@@ -641,6 +694,11 @@ function selectItem(id) {
       <button class="btn${done ? " is-done" : ""}" id="toggle-done-btn">${done ? "✅ 학습 완료" : "☐ 학습 완료로 표시"}</button>
     </div>
     <div class="md">${renderMarkdown(item.content)}</div>
+    <div class="course-nav">
+      ${prevItem ? `<button class="btn course-nav-btn prev" id="course-prev-btn"><span class="cn-label">◀ 이전</span><span class="cn-title">${escapeHtml(prevItem.title || prevItem.id)}</span></button>` : "<span></span>"}
+      ${idx >= 0 ? `<span class="course-position">코스 ${idx + 1} / ${order.length}</span>` : ""}
+      ${nextItem ? `<button class="btn course-nav-btn next" id="course-next-btn"><span class="cn-label">다음 ▶</span><span class="cn-title">${escapeHtml(nextItem.title || nextItem.id)}</span></button>` : "<span></span>"}
+    </div>
   `;
   document.getElementById("toggle-done-btn").addEventListener("click", () => {
     toggleDone(id);
@@ -648,6 +706,10 @@ function selectItem(id) {
     renderSidebar();
     updateProgressSummary();
   });
+  const prevBtn = document.getElementById("course-prev-btn");
+  if (prevBtn) prevBtn.addEventListener("click", () => selectItem(order[idx - 1]));
+  const nextBtn = document.getElementById("course-next-btn");
+  if (nextBtn) nextBtn.addEventListener("click", () => selectItem(order[idx + 1]));
   contentInner.parentElement.scrollTop = 0;
   renderSidebar();
 }
@@ -660,6 +722,19 @@ function pickRandom() {
   const pick = pool[Math.floor(Math.random() * pool.length)];
   selectItem(pick);
   if (notDone.length === 0) showToast("모든 문항을 학습했어요! 전체에서 무작위로 골랐습니다 🎉");
+}
+
+function startCourse() {
+  const order = courseOrder(currentSubject);
+  if (order.length === 0) return;
+  const resumeAt = order.find(id => !isDone(id));
+  if (resumeAt) {
+    selectItem(resumeAt);
+    showToast("추천 학습 순서로 이어서 시작합니다 📘");
+  } else {
+    selectItem(order[0]);
+    showToast("모든 코스를 완료했어요! 처음부터 다시 시작합니다 🎉");
+  }
 }
 
 document.getElementById("subject-toggle").addEventListener("click", (e) => {
@@ -675,6 +750,7 @@ document.getElementById("subject-toggle").addEventListener("click", (e) => {
 
 searchEl.addEventListener("input", () => renderSidebar());
 document.getElementById("random-btn").addEventListener("click", pickRandom);
+document.getElementById("course-btn").addEventListener("click", startCourse);
 
 renderSidebar();
 updateProgressSummary();
