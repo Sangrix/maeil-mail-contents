@@ -12,7 +12,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SITE = ROOT / "site"
 sys.path.insert(0, str(SITE))
-from curriculum import FRONTEND_ORDER, BACKEND_ORDER, BACKEND_CATEGORY_ORDER  # noqa: E402
+from curriculum import (  # noqa: E402
+    FRONTEND_ORDER,
+    BACKEND_ORDER,
+    FRONTEND_CATEGORY_ORDER,
+    BACKEND_CATEGORY_ORDER,
+)
 
 ITEM_RE = re.compile(r"^-\s*\[(.*?)\]\(contents/([\w-]+)\.md\)\s*$")
 CATEGORY_RE = re.compile(r"^##\s+(.*?)\s*$")
@@ -91,7 +96,7 @@ def build_section(subject_dir: Path, prefix: str, order_map, category_order=None
 
 def main():
     data = {
-        "frontend": build_section(ROOT / "frontend", "fe", FRONTEND_ORDER),
+        "frontend": build_section(ROOT / "frontend", "fe", FRONTEND_ORDER, FRONTEND_CATEGORY_ORDER),
         "backend": build_section(ROOT / "backend", "be", BACKEND_ORDER, BACKEND_CATEGORY_ORDER),
     }
 
