@@ -399,6 +399,29 @@
     margin: 0 0 18px;
   }
   .md pre code { background: none; border: none; padding: 0; font-size: 13px; line-height: 1.7; color: var(--text); }
+  .md-table-wrap {
+    overflow-x: auto;
+    margin: 0 0 18px;
+    border: 1px solid var(--glass-border-soft);
+    border-radius: 12px;
+  }
+  .md table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  .md thead th {
+    background: rgba(255,255,255,0.05);
+    text-align: left;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--glass-border);
+    color: var(--text);
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .md tbody td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--glass-border-soft);
+    color: var(--text-dim);
+  }
+  .md tbody tr:last-child td { border-bottom: none; }
+  .md tbody tr:hover td { background: rgba(255,255,255,0.03); }
   .md a { color: var(--accent-strong); text-decoration: none; border-bottom: 1px solid var(--accent-dim); }
   .md a:hover { border-bottom-color: var(--accent-strong); }
   .md strong { color: #fff; font-weight: 700; }
@@ -470,6 +493,18 @@ function renderInline(text) {
   text = text.replace(/<br\s*\/?>/g, "<br>");
   return text;
 }
+function isTableRow(line) {
+  return /^\s*\|.*\|\s*$/.test(line);
+}
+function isTableSeparator(line) {
+  return isTableRow(line) && /^[\s|:-]+$/.test(line) && line.includes("-");
+}
+function splitTableRow(line) {
+  let s = line.trim();
+  if (s.startsWith("|")) s = s.slice(1);
+  if (s.endsWith("|")) s = s.slice(0, -1);
+  return s.split("|").map(c => c.trim());
+}
 function renderMarkdown(md) {
   const lines = md.replace(/\r\n/g, "\n").split("\n");
   let html = "";
@@ -507,6 +542,22 @@ function renderMarkdown(md) {
       const level = Math.min(h[1].length, 3);
       html += `<h${level}>${renderInline(h[2])}</h${level}>`;
       i++; continue;
+    }
+    if (isTableRow(line) && i + 1 < lines.length && isTableSeparator(lines[i + 1])) {
+      flushPara(); flushList();
+      const headerCells = splitTableRow(line);
+      i += 2;
+      const bodyRows = [];
+      while (i < lines.length && isTableRow(lines[i])) {
+        bodyRows.push(splitTableRow(lines[i]));
+        i++;
+      }
+      html += "<div class=\"md-table-wrap\"><table><thead><tr>"
+        + headerCells.map(c => `<th>${renderInline(c)}</th>`).join("")
+        + "</tr></thead><tbody>"
+        + bodyRows.map(row => "<tr>" + row.map(c => `<td>${renderInline(c)}</td>`).join("") + "</tr>").join("")
+        + "</tbody></table></div>";
+      continue;
     }
     const bq = line.match(/^>\s?(.*)$/);
     if (bq) {
