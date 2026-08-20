@@ -370,6 +370,7 @@
   .md p { line-height: 1.9; margin: 0 0 16px; font-size: 15px; color: var(--text); }
   .md ul, .md ol { line-height: 1.9; font-size: 15px; margin: 0 0 16px; padding-left: 24px; color: var(--text); }
   .md li { margin-bottom: 6px; }
+  .md li > ul, .md li > ol { margin: 6px 0 0; font-size: 0.95em; }
   .md blockquote {
     margin: 0 0 16px;
     padding: 10px 16px;
@@ -493,29 +494,77 @@ function renderInline(text) {
   text = text.replace(/<br\s*\/?>/g, "<br>");
   return text;
 }
-function isTableRow(line) {
-  return /^\s*\|.*\|\s*$/.test(line);
-}
-function isTableSeparator(line) {
-  return isTableRow(line) && /^[\s|:-]+$/.test(line) && line.includes("-");
-}
-function splitTableRow(line) {
+/* 표: 앞뒤 |가 있는 형식과 없는 형식(GFM) 모두 지원 */
+function splitTableCells(line) {
   let s = line.trim();
   if (s.startsWith("|")) s = s.slice(1);
   if (s.endsWith("|")) s = s.slice(0, -1);
   return s.split("|").map(c => c.trim());
 }
+function isTableSeparatorLine(line) {
+  if (!line.includes("|") && !line.includes("-")) return false;
+  const cells = splitTableCells(line);
+  return cells.length > 0 && cells.every(c => /^:?-+:?$/.test(c));
+}
+
+/* 목록: '-'/'*'/'N.' 마커와 들여쓰기 깊이로 중첩 목록을 재귀적으로 구성 */
+function leadingSpaces(line) {
+  return line.match(/^(\s*)/)[1].length;
+}
+function matchListMarker(line) {
+  const ul = line.match(/^(\s*)[-*]\s+(.*)$/);
+  if (ul) return { type: "ul", content: ul[2], indent: ul[1].length };
+  const ol = line.match(/^(\s*)\d+\.\s+(.*)$/);
+  if (ol) return { type: "ol", content: ol[2], indent: ol[1].length };
+  return null;
+}
+function parseList(lines, pos, indent) {
+  const first = matchListMarker(lines[pos.i]);
+  const type = first.type;
+  let itemsHtml = "";
+  while (pos.i < lines.length) {
+    const line = lines[pos.i];
+    if (line.trim() === "") {
+      const next = lines[pos.i + 1];
+      const nextMarker = next !== undefined ? matchListMarker(next) : null;
+      if (nextMarker && nextMarker.indent >= indent) { pos.i++; continue; }
+      break;
+    }
+    const marker = matchListMarker(line);
+    if (!marker || marker.indent < indent || (marker.indent === indent && marker.type !== type)) break;
+    if (marker.indent > indent) break; // 더 깊은 들여쓰기는 상위 항목 처리 중 재귀로 소비되어야 함
+
+    pos.i++;
+    let itemHtml = renderInline(marker.content);
+    while (pos.i < lines.length) {
+      const la = lines[pos.i];
+      if (la.trim() === "") {
+        const nx = lines[pos.i + 1];
+        const nxMarker = nx !== undefined ? matchListMarker(nx) : null;
+        if (nxMarker && nxMarker.indent > indent) { pos.i++; continue; }
+        break;
+      }
+      const laMarker = matchListMarker(la);
+      if (laMarker && laMarker.indent > indent) {
+        itemHtml += parseList(lines, pos, laMarker.indent);
+        continue;
+      }
+      if (!laMarker && leadingSpaces(la) > indent) {
+        itemHtml += " " + renderInline(la.trim());
+        pos.i++;
+        continue;
+      }
+      break;
+    }
+    itemsHtml += `<li>${itemHtml}</li>`;
+  }
+  return `<${type}>${itemsHtml}</${type}>`;
+}
+
 function renderMarkdown(md) {
   const lines = md.replace(/\r\n/g, "\n").split("\n");
   let html = "";
   let i = 0;
-  let listBuffer = null; // {type: 'ul'|'ol', items: []}
-  function flushList() {
-    if (!listBuffer) return;
-    const tag = listBuffer.type;
-    html += `<${tag}>` + listBuffer.items.map(it => `<li>${renderInline(it)}</li>`).join("") + `</${tag}>`;
-    listBuffer = null;
-  }
   let paraBuffer = [];
   function flushPara() {
     if (paraBuffer.length) {
@@ -527,7 +576,7 @@ function renderMarkdown(md) {
     const line = lines[i];
 
     if (/^```/.test(line)) {
-      flushPara(); flushList();
+      flushPara();
       const lang = line.replace(/^```/, "").trim();
       const code = [];
       i++;
@@ -538,57 +587,53 @@ function renderMarkdown(md) {
     }
     const h = line.match(/^(#{1,6})\s+(.*)$/);
     if (h) {
-      flushPara(); flushList();
+      flushPara();
       const level = Math.min(h[1].length, 3);
       html += `<h${level}>${renderInline(h[2])}</h${level}>`;
       i++; continue;
     }
-    if (isTableRow(line) && i + 1 < lines.length && isTableSeparator(lines[i + 1])) {
-      flushPara(); flushList();
-      const headerCells = splitTableRow(line);
-      i += 2;
-      const bodyRows = [];
-      while (i < lines.length && isTableRow(lines[i])) {
-        bodyRows.push(splitTableRow(lines[i]));
-        i++;
+    if (line.includes("|") && i + 1 < lines.length && isTableSeparatorLine(lines[i + 1])) {
+      const headerCells = splitTableCells(line);
+      const sepCells = splitTableCells(lines[i + 1]);
+      if (headerCells.length === sepCells.length) {
+        flushPara();
+        i += 2;
+        const bodyRows = [];
+        while (i < lines.length && lines[i].trim() !== "" && lines[i].includes("|")) {
+          bodyRows.push(splitTableCells(lines[i]));
+          i++;
+        }
+        html += "<div class=\"md-table-wrap\"><table><thead><tr>"
+          + headerCells.map(c => `<th>${renderInline(c)}</th>`).join("")
+          + "</tr></thead><tbody>"
+          + bodyRows.map(row => "<tr>" + row.map(c => `<td>${renderInline(c)}</td>`).join("") + "</tr>").join("")
+          + "</tbody></table></div>";
+        continue;
       }
-      html += "<div class=\"md-table-wrap\"><table><thead><tr>"
-        + headerCells.map(c => `<th>${renderInline(c)}</th>`).join("")
-        + "</tr></thead><tbody>"
-        + bodyRows.map(row => "<tr>" + row.map(c => `<td>${renderInline(c)}</td>`).join("") + "</tr>").join("")
-        + "</tbody></table></div>";
-      continue;
     }
     const bq = line.match(/^>\s?(.*)$/);
     if (bq) {
-      flushPara(); flushList();
+      flushPara();
       const quote = [];
       while (i < lines.length && /^>\s?/.test(lines[i])) { quote.push(lines[i].replace(/^>\s?/, "")); i++; }
       html += `<blockquote>${quote.map(renderInline).join("<br>")}</blockquote>`;
       continue;
     }
-    const ul = line.match(/^[-*]\s+(.*)$/);
-    if (ul) {
+    if (matchListMarker(line)) {
       flushPara();
-      if (!listBuffer || listBuffer.type !== "ul") { flushList(); listBuffer = { type: "ul", items: [] }; }
-      listBuffer.items.push(ul[1]);
-      i++; continue;
-    }
-    const ol = line.match(/^\d+\.\s+(.*)$/);
-    if (ol) {
-      flushPara();
-      if (!listBuffer || listBuffer.type !== "ol") { flushList(); listBuffer = { type: "ol", items: [] }; }
-      listBuffer.items.push(ol[1]);
-      i++; continue;
+      const pos = { i };
+      html += parseList(lines, pos, matchListMarker(line).indent);
+      i = pos.i;
+      continue;
     }
     if (line.trim() === "") {
-      flushPara(); flushList();
+      flushPara();
       i++; continue;
     }
     paraBuffer.push(line);
     i++;
   }
-  flushPara(); flushList();
+  flushPara();
   return html;
 }
 
