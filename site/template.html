@@ -341,16 +341,17 @@
     font-variant-numeric: tabular-nums;
   }
   .md h2 {
-    font-size: 17px;
+    font-size: 18px;
     font-weight: 700;
-    margin-top: 40px;
-    margin-bottom: 16px;
-    padding-top: 24px;
+    margin-top: 46px;
+    margin-bottom: 20px;
+    padding-top: 26px;
     border-top: 1px solid var(--glass-border-soft);
     color: var(--text);
     display: flex;
     align-items: center;
     gap: 8px;
+    letter-spacing: -0.005em;
   }
   .md h2::before {
     content: "Q";
@@ -366,19 +367,33 @@
     font-weight: 800;
     flex-shrink: 0;
   }
-  .md h3 { font-size: 15px; margin-top: 22px; color: var(--text); }
-  .md p { line-height: 1.9; margin: 0 0 16px; font-size: 15px; color: var(--text); }
-  .md ul, .md ol { line-height: 1.9; font-size: 15px; margin: 0 0 16px; padding-left: 24px; color: var(--text); }
-  .md li { margin-bottom: 6px; }
+  .md h3 { font-size: 16px; margin-top: 26px; margin-bottom: 4px; color: var(--text); }
+  .md p {
+    line-height: 1.95;
+    margin: 0 0 22px;
+    font-size: 16px;
+    color: var(--text);
+    letter-spacing: -0.003em;
+    word-spacing: 0.01em;
+  }
+  .md ul, .md ol {
+    line-height: 1.95;
+    font-size: 16px;
+    margin: 0 0 22px;
+    padding-left: 26px;
+    color: var(--text);
+  }
+  .md li { margin-bottom: 9px; }
   .md li > ul, .md li > ol { margin: 6px 0 0; font-size: 0.95em; }
   .md blockquote {
-    margin: 0 0 16px;
-    padding: 10px 16px;
+    margin: 0 0 22px;
+    padding: 12px 18px;
     border-left: 3px solid var(--accent);
     background: rgba(255,255,255,0.04);
     color: var(--text-dim);
     border-radius: 0 10px 10px 0;
-    font-size: 14px;
+    font-size: 15px;
+    line-height: 1.85;
   }
   .md code {
     background: var(--code-bg);
@@ -395,11 +410,11 @@
     -webkit-backdrop-filter: blur(8px);
     border: 1px solid var(--glass-border-soft);
     border-radius: var(--radius);
-    padding: 16px 18px;
+    padding: 18px 20px;
     overflow-x: auto;
-    margin: 0 0 18px;
+    margin: 0 0 22px;
   }
-  .md pre code { background: none; border: none; padding: 0; font-size: 13px; line-height: 1.7; color: var(--text); }
+  .md pre code { background: none; border: none; padding: 0; font-size: 13.5px; line-height: 1.75; color: var(--text); }
   .md-table-wrap {
     overflow-x: auto;
     margin: 0 0 18px;
